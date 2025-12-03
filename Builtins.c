@@ -1,5 +1,6 @@
 #include "shell.h"
 #include "Builtins.h"
+#include "utils.h"
 
 /*
     Function Declarations for builtin shell commands;
@@ -8,6 +9,9 @@ int lsh_cd(char **args);
 int help(char **args);
 int lsh_exit(char **args);
 int lsh_history(char **args);
+int lsh_countd(char **args);
+int lsh_date(char **args);
+int lsh_time(char **args);
 
 
 /*
@@ -17,14 +21,20 @@ char *builtin_str[] = {
     "cd",
     "help",
     "exit",
-    "history"
+    "history",
+    "countd",
+    "date",
+    "time"
 };
 
 int (*builtin_func[]) (char **) = {
     &lsh_cd,
     &help,
     &lsh_exit,
-    &lsh_history
+    &lsh_history,
+    &lsh_countd,
+    &lsh_date,
+    &lsh_time
 };
 
 int lsh_num_builtins() {
@@ -68,5 +78,21 @@ int help(char **args) {
     for (int i = start_index; i < history_count; i++) {
         printf("%d: %s\n", i + 1, history[i % HISTORY_MAX]);
     }
+    return 1;
+ }
+
+ int lsh_countd(char **args) {
+    int i = atoi(args[1]);
+    countdown(i);
+    return 1;
+ }
+
+ int lsh_date(char **args) {
+    date();
+    return 1;
+ }
+
+ int lsh_time(char **args) {
+    time_();
     return 1;
  }
