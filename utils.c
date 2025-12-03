@@ -13,7 +13,7 @@ void countdown(int seconds) {
 
     system("clear");
     printf("***********************************\n");
-    printf("*           HHH!           *\n");
+    printf("*           Time out!           *\n");
     printf("***********************************\n");
 }
 
@@ -40,4 +40,57 @@ void time_() {
     char buffer[20];
     strftime(buffer, sizeof(buffer), "%Y-%m-%d %H:%M:%S", &tm_info);
     printf("Current time: %s\n", buffer);
+}
+
+void addProcess(int pid, char *name, int status) {
+    printf("[Shell Info] Process added to background list: PID=%d\n", pid);
+}
+
+void openCalculator(int is_background) {
+    pid_t pid = fork();
+
+    if (pid == 0) {
+        // --- TIẾN TRÌNH CON ---
+        
+        // Redirect stderr để terminal không bị rác nếu lệnh open bắn log
+        freopen("/dev/null", "w", stderr);
+        freopen("/dev/null", "w", stdout);
+
+        if (!is_background) {
+            // FOREGROUND: Dùng tham số -W (Wait) để lệnh open đợi app tắt rồi mới kết thúc
+            // Lệnh tương đương: open -W -a Calculator
+            char *args[] = {"open", "-W", "-a", "Calculator", NULL};
+            execvp("open", args);
+        } else {
+            // BACKGROUND: Chỉ mở lên rồi trả về ngay lập tức
+            // Lệnh tương đương: open -a Calculator
+            char *args[] = {"open", "-a", "Calculator", NULL};
+            execvp("open", args);
+        }
+        
+        // Nếu execvp chạy tới đây nghĩa là lỗi
+        exit(1);
+
+    } else if (pid > 0) {
+        // --- TIẾN TRÌNH CHA ---
+        
+        if (!is_background) {
+            // Chế độ Foreground
+            fg_pid = pid;
+            strcpy(fg_command_name, "Calculator");
+            
+            int status = 0;
+            // Shell đợi lệnh "open -W" kết thúc (lệnh này kết thúc khi bạn tắt Calculator)
+            waitpid(pid, &status, WUNTRACED);
+            
+            fg_pid = -1;
+        } else {
+            // Chế độ Background
+            addProcess(pid, "Calculator", 0);
+            printf("Calculator opened in background with PID %d\n", pid);
+        }
+
+    } else {
+        perror("Fork failed");
+    }
 }

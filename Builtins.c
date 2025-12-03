@@ -12,6 +12,7 @@ int lsh_history(char **args);
 int lsh_countd(char **args);
 int lsh_date(char **args);
 int lsh_time(char **args);
+int lsh_calculator(char **args);
 
 
 /*
@@ -24,7 +25,30 @@ char *builtin_str[] = {
     "history",
     "countd",
     "date",
-    "time"
+    "time",
+    "calculator"
+};
+
+char *builtin_desc[] = {
+  "Change the current working directory.",
+  "Display information about builtin commands.",
+  "Terminate the shell.",
+  "Display the history of commands.",
+  "Count down timer",
+  "Display the current date.",
+  "Display the current time.",
+  "Perform basic arithmetic operations."
+};
+
+char *builtin_usage[] = {
+  "cd <directory>",
+  "help [command]",
+  "exit",
+  "history",
+  "countd <num>",  
+  "date",
+  "time",
+  "calculator <op>"
 };
 
 int (*builtin_func[]) (char **) = {
@@ -34,7 +58,8 @@ int (*builtin_func[]) (char **) = {
     &lsh_history,
     &lsh_countd,
     &lsh_date,
-    &lsh_time
+    &lsh_time,
+    &lsh_calculator
 };
 
 int lsh_num_builtins() {
@@ -57,17 +82,39 @@ int lsh_num_builtins() {
 
 int help(char **args) {
     int i;
-    printf("Le Tung Lam's LSH\n");
-    printf("Type program names and arguments, and hit enter.\n");
-    printf("The following are built in::\n");
+    printf("--- Le Tung Lam's LSH ---\n");
 
-    for (i=0;i<lsh_num_builtins();i++){
-        printf("  %s\n", builtin_str[i]);
+    if (args[1] == NULL) {
+        printf("Type program names and arguments, and hit enter.\n");
+        printf("The following are built in:\n\n");
+
+        printf("  %-12s %-30s %s\n", "COMMAND", "USAGE", "DESCRIPTION");
+        printf("  %-12s %-30s %s\n", "-------", "-----", "-----------");
+
+        for (i = 0; i < lsh_num_builtins(); i++) {
+            printf("  %-12s %-30s %s\n", builtin_str[i], builtin_usage[i], builtin_desc[i]);
+        }
+
+        printf("\nUse 'help <command>' for specific details.\n");
+    } 
+    else {
+        int found = 0;
+        for (i = 0; i < lsh_num_builtins(); i++) {
+            if (strcmp(args[1], builtin_str[i]) == 0) {
+                printf("Info for built-in command: '%s'\n", args[1]);
+                printf("  Usage:       %s\n", builtin_usage[i]);
+                printf("  Description: %s\n", builtin_desc[i]);
+                found = 1;
+                break;
+            }
+        }
+        
+        if (!found) {
+            printf("LSH: No help entry for '%s'.\n", args[1]);
+        }
     }
-
-    printf("Use the man command for information on other program.\n");
     return 1;
- }
+}
 
  int lsh_exit(char **args){
     return 0;
@@ -94,5 +141,10 @@ int help(char **args) {
 
  int lsh_time(char **args) {
     time_();
+    return 1;
+ }
+
+ int lsh_calculator(char **args) {
+    openCalculator(0);
     return 1;
  }

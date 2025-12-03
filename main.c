@@ -4,7 +4,7 @@
 #include "parser.h"
 #include "launch.h"
 
-
+pid_t fg_pid = 0;
 int history_count = 0;
 char *history[HISTORY_MAX];
 
@@ -33,12 +33,12 @@ int lsh_execute(char **args){
         }
     }
 
-    printf("lsh: No such file or directory\n");
-    free(history[history_count]);
-    history_count--;
-    if (history_count < 0) history_count = HISTORY_MAX;
-    return 1;
-    //return lsh_launch(args);
+    //printf("lsh: No such file or directory\n");
+    //free(history[history_count]);
+    //history_count--;
+    //if (history_count < 0) history_count = HISTORY_MAX;
+    //return 1;
+    return lsh_launch(args);
 }
 
 
