@@ -12,6 +12,7 @@
 #include <dirent.h>
 #include <signal.h>
 #include <sys/types.h>
+#include <glob.h>
 
 
 #define LSH_RL_BUFSIZE 1024

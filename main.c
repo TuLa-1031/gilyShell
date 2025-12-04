@@ -69,6 +69,7 @@ void lsh_loop(void) {
         if (line[0] != '\0' && line[0] != '\n') add_to_history(line);
 
         args = lsh_split_line(line);
+        args = expand_to_glob_argv(args);
         status = lsh_execute(args);
 
         free(line);
@@ -77,7 +78,7 @@ void lsh_loop(void) {
 }
 
 
-int main(int argc, char **argv) {
+int main(int argc, char **args) {
     // Load config files, if any.
     introduction();
     // Run command loop.

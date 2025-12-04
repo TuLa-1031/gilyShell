@@ -1,7 +1,7 @@
 CC=gcc
 CFLAGS=-I.
 DEPS = gilyshell.h
-OBJ =	Builtins.o	launch.o	parser.o	introduction.o	main.o
+OBJ =	utils.o	Builtins.o	launch.o	parser.o	introduction.o	main.o
 
 %.o: %.c $(DEPS)
 		$(CC) -c -o $@ $< $(CFLAGS)

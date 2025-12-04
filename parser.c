@@ -66,3 +66,40 @@ char *lsh_read_line(void) {
         }
     }
 }
+
+int has_wildcard(const char *s) {
+    return (strchr(s, '*') || strchr(s, '?') ||strchr(s, '['));
+}
+
+char **expand_to_glob_argv(char **args) {
+    glob_t globbuf;
+    char **new_argv = NULL;
+    int new_argc = 0;
+
+    for (int i = 0; args[i]!=NULL; i++) {
+        if (has_wildcard((args[i]))) {
+            int ret = glob(args[i], 0, NULL, &globbuf);
+            if (ret==0) {
+                for (size_t j = 0; j < globbuf.gl_pathc; j++) {
+                    new_argv = realloc(new_argv, sizeof(char*)*(new_argc + 2));
+                    new_argv[new_argc] = strdup(globbuf.gl_pathv[j]);
+                    new_argc++;
+                }
+                globfree(&globbuf);
+            }   else {
+                new_argv = realloc(new_argv, sizeof(char*) * (new_argc + 2));
+                new_argv[new_argc] = strdup(args[i]);
+                new_argc++;
+            }
+        }   else {
+            new_argv = realloc(new_argv, sizeof(char*) * (new_argc + 2));
+            new_argv[new_argc] = strdup(args[i]);
+            new_argc++;
+        }
+    }
+    if (new_argv) {
+        new_argv[new_argc] = NULL;
+    }
+
+    return new_argv;
+}
