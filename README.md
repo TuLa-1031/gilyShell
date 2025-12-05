@@ -1,104 +1,109 @@
-# Operating Systems – HUST
+# GilyShell: A Functional POSIX-Compliant Shell Implementation
 
-## Simple UNIX-like Shell
+**GilyShell** is a custom-built command-line interpreter (CLI) developed in C. Unlike basic shell wrappers, GilyShell is a fully functional environment that implements core Operating System concepts from scratch, including Inter-Process Communication (IPC), Signal Handling, and Process Group Management.
 
-This repository contains my project for the **Operating Systems course at HUST**. The project focuses on building a simple UNIX-like shell from scratch using low-level UNIX system calls.
+This project demonstrates a deep dive into **Systems Programming**, showcasing the ability to interact directly with the Unix Kernel API without relying on high-level abstractions.
 
----
+-----
 
-## 📌 Overview
+## 🚀 Technical Architecture & Highlights
 
-The goal of this project is to understand how an operating system interacts with user-level programs, specifically through:
+The project focuses on the interaction between user-space programs and kernel-space services through low-level system calls.
 
-* Process creation
-* Executing external programs
-* Managing child processes
-* Basic shell behavior (parsing + executing commands)
+### 1\. Advanced Process Management & Job Control
 
-The shell is implemented in **C**
+  * **Background Execution:** Implemented support for background processes using the `&` operator, managing process execution without blocking the shell instance.
+  * **Context Switching:** Utilization of `fork()`, `execvp()`, and `waitpid()` to manage the lifecycle of child processes.
 
----
+### 2\. Inter-Process Communication (IPC) & Pipelines
 
-## 📁 Project Structure (Modules)
+  * **Piping (`|`):** Engineered a pipeline mechanism using `pipe()` and file descriptor manipulation. This allows the output of one process to serve directly as the input to another (e.g., `ls -l | grep .c`).
+  * **Recursive Execution:** Capable of handling multiple piped commands in a single chain.
 
-```
-/src
-│── main.c              // Entry point of the shell
-│── parser.c            // Command parsing (tokenization)
-│── launch.c            // Process creation using fork + execvp
-│── Builtins.c          // (Reserved) Built-in shell commands
-│── introduction.c      // Create introduction artwork
+### 3\. I/O Redirection & File Descriptors
 
-/include
-│── shell.h
-│── parser.h
-│── launch.h
-│── Builtins.h
-│── introduction.h
+  * **Stream Manipulation:** Implemented standard Unix redirection operators (`>`, `<`, `2>`) using `dup2()` to clone file descriptors, enabling dynamic input/output routing between files and processes.
 
-Makefile
-```
+### 4\. Signal Handling & Safety
 
----
+  * **Interrupt Management:** robust handling of hardware and software signals.
+      * `SIGINT` (Ctrl+C): Safely interrupts the foreground process without crashing the shell.
+      * `SIGTSTP` (Ctrl+Z): Manages process suspension.
+  * **Zombie Prevention:** Proper cleanup of terminated child processes to prevent resource leaks.
 
-## ✨ Features Implemented
+-----
 
-### ✔ Process Creation
+## 📁 Project Structure
 
-Uses `fork()` to create a child process for every command.
-
-### ✔ Program Execution
-
-Uses `execvp()` to run external commands such as:
+Designed with modularity to separate parsing logic from execution strategies.
 
 ```
-ls -l
-cat file.txt
-gcc main.c
+.
+├── src/
+│   ├── main.c            # Event loop and signal trap initialization
+│   ├── parser.c          # Lexical analysis and tokenization logic
+│   ├── launch.c          # Process forking and external execution
+│   ├── pipes.c           # Logic for handling IPC and piped commands
+│   ├── redirect.c        # File descriptor manipulation for I/O
+│   ├── Builtins.c        # Internal command implementations (cd, exit, etc.)
+│   └── introduction.c    # UI and Shell initialization
+├── include/              # Header files defining interfaces for modules
+├── Makefile              # Build configuration
+└── README.md
 ```
 
-### ✔ Command Parsing
+-----
 
-Splits user input into tokens before execution.
+## ✨ Feature Showcase
 
-### ✔ Basic Shell Loop
+### Executing Commands with Pipelines
 
-* Reads input
-* Parses command
-* Forks & executes
-* Waits for child process
+GilyShell supports chaining commands via pipes:
 
----
+```bash
+gily> ls -l /usr/bin | grep python | wc -l
+```
 
-## 🚧 Features in Progress
+### Input/Output Redirection
 
-* Job control (background processes)
-* Signal handling (`SIGINT`, `SIGTSTP`, etc.)
-* Built-in commands: `cd`, `exit`, `pwd`
-* I/O redirection (`>`, `<`)
-* Pipelines (`|`)
+Seamlessly redirect streams to files:
 
----
+```bash
+gily> echo "Hello World" > output.txt
+gily> cat < output.txt
+```
 
-## 🔧 Build & Run
+### Background Processes
+
+Run tasks in the background to keep the shell interactive:
+
+```bash
+gily> sleep 10 &
+[1] 12345
+```
+
+-----
+
+## 🛠 Installation & Usage
 
 ### Build
 
-```
+Compile the source code using the provided Makefile:
+
+```bash
 make
 ```
 
 ### Run
 
-```
+Start the shell instance:
+
+```bash
 ./gilyshell
 ```
 
----
+-----
 
-## 📚 Course Information
+## 👨‍💻 Author
 
-* **Course:** Operating Systems (OS)
-* **University:** Hanoi University of Science and Technology (HUST)
-* **Language:** C
-* **Platform:** Linux
+**Le Tung Lam**
