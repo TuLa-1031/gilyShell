@@ -1,8 +1,8 @@
-#include "shell.h"
-#include "Builtins.h"
-#include "introduction.h"
-#include "parser.h"
-#include "execute.h"
+#include "./include/shell.h"
+#include "./include/Builtins.h"
+#include "./include/introduction.h"
+#include "./include/parser.h"
+#include "./include/execute.h"
 
 pid_t fg_pid = 0;
 int history_count = 0;

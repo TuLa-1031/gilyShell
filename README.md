@@ -42,7 +42,7 @@ Designed with modularity to separate parsing logic from execution strategies.
 ├── src/
 │   ├── main.c            # Event loop and signal trap initialization
 │   ├── parser.c          # Lexical analysis and tokenization logic
-│   ├── launch.c          # Process forking and external execution
+│   ├── execute.c          # Process forking and external execution
 │   ├── pipes.c           # Logic for handling IPC and piped commands
 │   ├── redirect.c        # File descriptor manipulation for I/O
 │   ├── Builtins.c        # Internal command implementations (cd, exit, etc.)

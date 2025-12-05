@@ -1,6 +1,6 @@
-#include "shell.h"
-#include "Builtins.h"
-#include "introduction.h"
+#include "./include/shell.h"
+#include "./include/Builtins.h"
+#include "./include/introduction.h"
 
 #define COLOR_CYAN  "\033[1;36m"
 #define COLOR_YELLOW "\033[1;33m"

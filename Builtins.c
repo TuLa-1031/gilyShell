@@ -1,6 +1,6 @@
-#include "shell.h"
-#include "Builtins.h"
-#include "utils.h"
+#include "./include/shell.h"
+#include "./include/Builtins.h"
+#include "./include/utils.h"
 
 /*
     Function Declarations for builtin shell commands;

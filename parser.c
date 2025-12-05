@@ -1,5 +1,5 @@
-#include "shell.h"
-#include "parser.h"
+#include "./include/shell.h"
+#include "./include/parser.h"
 
 char *lsh_read_line(void) {
     int bufsize = LSH_RL_BUFSIZE;
