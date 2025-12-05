@@ -2,7 +2,7 @@
 #include "Builtins.h"
 #include "introduction.h"
 #include "parser.h"
-#include "launch.h"
+#include "execute.h"
 
 pid_t fg_pid = 0;
 int history_count = 0;
@@ -19,36 +19,14 @@ void add_to_history(char *line) {
 }
 
 
-int lsh_execute(char **args){
-    int i;
-
-    if (args[0]==NULL){
-        // AN empty command was entered.
-        return 1;
-    }
-
-    for (i=0;i<lsh_num_builtins();i++){
-        if (strcmp(args[0], builtin_str[i])==0){
-            return (*builtin_func[i])(args);
-        }
-    }
-
-    //printf("lsh: No such file or directory\n");
-    //free(history[history_count]);
-    //history_count--;
-    //if (history_count < 0) history_count = HISTORY_MAX;
-    //return 1;
-    return lsh_launch(args);
-}
-
-
 void lsh_loop(void) {
+    Token tokens[1024];
     char *line;
     char **args;
     int status;
 
     do {
-        printf("> ");
+        printf("glsh> ");
         line = lsh_read_line();
 
         if (strcmp(line, "!!\n") == 0 || strcmp(line, "!!") == 0) {
@@ -68,12 +46,24 @@ void lsh_loop(void) {
 
         if (line[0] != '\0' && line[0] != '\n') add_to_history(line);
 
-        args = lsh_split_line(line);
-        args = expand_to_glob_argv(args);
-        status = lsh_execute(args);
+        if (!line || strlen(line) == 0) {
+            if (line) free(line);
+            continue;
+        }
+        int n_tok = tokenize(line, tokens);
+        if (n_tok > 0) {
+            Pipeline *pl = parse(tokens, n_tok);
+            
+            if (pl->count > 0 && pl->cmds[0]->argc > 0) {
+                if (strcmp(pl->cmds[0]->argv[0], "exit") == 0) {
+                    break;
+                }
+                status = execute_pipeline(pl);
+            }
+            
+        }
 
         free(line);
-        free(args);
     }   while (status);
 }
 
