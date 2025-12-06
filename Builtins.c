@@ -70,10 +70,10 @@ int lsh_num_builtins() {
  */
  int lsh_cd(char **args) {
     if (args[1]==NULL) {
-        fprintf(stderr, "lsh: expeccted argument to \"cd\"\n");
+        fprintf(stderr, "glsh: expeccted argument to \"cd\"\n");
     }   else{
         if (chdir(args[1])!=0){
-            perror("lsh");
+            perror("glsh");
         }
     }
     return 1;
@@ -82,7 +82,7 @@ int lsh_num_builtins() {
 
 int help(char **args) {
     int i;
-    printf("--- Le Tung Lam's LSH ---\n");
+    printf("--- Le Tung Lam's shell ---\n");
 
     if (args[1] == NULL) {
         printf("Type program names and arguments, and hit enter.\n");

@@ -28,10 +28,10 @@ void lsh_loop(void) {
     do {
         printf("glsh> ");
         line = lsh_read_line();
-
+        // xu ly ngoai le khi !! la lenh dau tien
         if (strcmp(line, "!!\n") == 0 || strcmp(line, "!!") == 0) {
             if (history_count == 0) {
-                printf("lsh: no command in history yet.\n");
+                printf("glsh: no command in history yet.\n");
                 free(line);
                 continue;
             }
@@ -45,11 +45,13 @@ void lsh_loop(void) {
         }
 
         if (line[0] != '\0' && line[0] != '\n') add_to_history(line);
-
+        /*
         if (!line || strlen(line) == 0) {
             if (line) free(line);
             continue;
         }
+        */
+        
         int n_tok = tokenize(line, tokens);
         if (n_tok > 0) {
             Pipeline *pl = parse(tokens, n_tok);
@@ -59,10 +61,12 @@ void lsh_loop(void) {
                     break;
                 }
                 status = execute_pipeline(pl);
+            }   else {
+                if (pl) free(pl);
             }
             
         }
-
+        
         free(line);
     }   while (status);
 }

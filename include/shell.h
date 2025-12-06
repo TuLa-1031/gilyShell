@@ -44,7 +44,7 @@ typedef struct {
 }   Command;
 
 typedef struct {
-    Command *cmds[MAX_CMDS];
+    Command *commands[MAX_CMDS];
     int count;
 }   Pipeline;
 

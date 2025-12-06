@@ -1,6 +1,6 @@
-#include "shell.h"
-#include "Builtins.h"
-#include "parser.h"
+#include "./include/shell.h"
+#include "./include/Builtins.h"
+#include "./include/parser.h"
 
 int lsh_execute(char **args){
     int i;
@@ -16,7 +16,7 @@ int lsh_execute(char **args){
         }
     }
 
-    //printf("lsh: No such file or directory\n");
+    //printf("glsh: No such file or directory\n");
     //free(history[history_count]);
     //history_count--;
     //if (history_count < 0) history_count = HISTORY_MAX;
@@ -28,12 +28,12 @@ int lsh_execute(char **args){
     if (pid==0) {
         // Child process
         if (execvp(args[0], args)==-1){
-            perror("lsh");
+            perror("glsh");
         }
         exit(EXIT_FAILURE);
     }   else if (pid<0){
         //Error forking
-        perror("lsh");
+        perror("glsh");
     }   else{
         // Parent process
         do{
@@ -109,7 +109,7 @@ int execute_pipeline(Pipeline *pl) {
             }
 
             if (execvp(expanded_argv[0], expanded_argv) == -1) {
-                perror("lsh");
+                perror("glsh");
             }
             exit(EXIT_FAILURE);
 
