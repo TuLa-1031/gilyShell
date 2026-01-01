@@ -1,6 +1,6 @@
-#include "shell.h"
-#include "Builtins.h"
-#include "parser.h"
+#include "include/shell.h"
+#include "include/Builtins.h"
+#include "include/parser.h"
 
 int lsh_execute(char **args){
     int i;

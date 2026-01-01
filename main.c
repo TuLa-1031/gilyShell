@@ -26,7 +26,7 @@ void lsh_loop(void) {
     int status;
 
     do {
-        printf("glsh> ");
+        printf("$ ");
         line = lsh_read_line();
 
         if (strcmp(line, "!!\n") == 0 || strcmp(line, "!!") == 0) {
