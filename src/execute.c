@@ -49,7 +49,11 @@ static void setup_output_redirect(Command *cmd, int pipefd[2], int is_last) {
 
 static void execute_child(char **argv) {
   int builtin_idx;
+
+  // DEBUG: Print what we are trying to execute
+
   if (is_builtin(argv[0], &builtin_idx)) {
+
     run_builtin(builtin_idx, argv);
     exit(EXIT_SUCCESS);
   }
@@ -93,10 +97,18 @@ int execute_pipeline(Pipeline *pl) {
   int prev_pipe_read = -1;
   int pipefd[2];
 
-  if (pl->count == 1 && pl->cmds[0]->argv[0] != NULL) {
+  if (pl->count == 1 && pl->cmds[0]->argv[0] != NULL && !pl->background) {
     int builtin_idx;
     if (is_builtin(pl->cmds[0]->argv[0], &builtin_idx)) {
       return run_builtin(builtin_idx, pl->cmds[0]->argv);
+    }
+  }
+
+  if (pl->background) {
+    if (pl->count > 0 && pl->cmds[pl->count - 1]->argv[0] != NULL) {
+      // Ideally we'd want the PID of the last command in pipeline if it's a
+      // pipeline But simplified for now, we just don't wait for any. We need to
+      // track the last PID to add to jobs.
     }
   }
 
@@ -116,6 +128,22 @@ int execute_pipeline(Pipeline *pl) {
 
     pid_t pid = fork();
     if (pid == 0) {
+      // Child process
+      setpgid(0, 0); // Put child in its own process group
+
+      if (!pl->background && is_last) {
+        // If foreground, give terminal control to this process group
+        tcsetpgrp(STDIN_FILENO, getpid());
+      }
+
+      // Restore default signal handlers for child
+      signal(SIGINT, SIG_DFL);
+      signal(SIGQUIT, SIG_DFL);
+      signal(SIGTSTP, SIG_DFL);
+      signal(SIGTTIN, SIG_DFL);
+      signal(SIGTTOU, SIG_DFL);
+      signal(SIGCHLD, SIG_DFL);
+
       setup_input_redirect(cmd, prev_pipe_read);
       setup_output_redirect(cmd, pipefd, is_last);
 
@@ -128,6 +156,9 @@ int execute_pipeline(Pipeline *pl) {
       perror("fork");
       return 1;
     } else {
+      // Parent process
+      setpgid(pid,
+              pid); // Ensure child is in its own group (avoid race condition)
       if (prev_pipe_read != -1) {
         close(prev_pipe_read);
       }
@@ -136,11 +167,22 @@ int execute_pipeline(Pipeline *pl) {
         close(pipefd[1]);
         prev_pipe_read = pipefd[0];
       }
+
+      // If this is the last command in a background pipeline, add it to jobs
+      if (is_last && pl->background) {
+        add_job(pid, JOB_RUNNING, expanded_argv[0]); // Simple command name
+      }
     }
   }
 
-  for (int i = 0; i < pl->count; i++) {
-    wait(NULL);
+  if (!pl->background) {
+    // Foreground: wait for all
+    for (int i = 0; i < pl->count; i++) {
+      int status;
+      waitpid(-1, &status, WUNTRACED);
+    }
+    // Restore terminal control to shell
+    tcsetpgrp(STDIN_FILENO, getpgrp());
   }
 
   return 1;

@@ -27,7 +27,8 @@ typedef enum {
   T_PIPE,
   T_REDIR_IN,
   T_REDIR_OUT,
-  T_REDIR_APPEND
+  T_REDIR_APPEND,
+  T_AMP
 } TokenType;
 
 typedef struct {
@@ -46,7 +47,17 @@ typedef struct {
 typedef struct {
   Command *cmds[MAX_CMDS];
   int count;
+  int background;
 } Pipeline;
+
+typedef enum { JOB_RUNNING, JOB_STOPPED, JOB_DONE } JobStatus;
+
+typedef struct {
+  pid_t pid;
+  int id;
+  JobStatus status;
+  char *command;
+} Job;
 
 extern char *history[HISTORY_MAX];
 extern int history_count;
@@ -57,5 +68,14 @@ extern char fg_command_name[256];
 extern char **environ;
 
 void printAnimatedText();
+
+// Job control
+void init_jobs(void);
+void add_job(pid_t pid, JobStatus status, const char *cmd);
+void delete_job(pid_t pid);
+Job *find_job(pid_t pid);
+Job *find_job_by_id(int id);
+void print_jobs(void);
+int get_next_job_id(void);
 
 #endif

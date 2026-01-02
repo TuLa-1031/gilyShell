@@ -1,4 +1,24 @@
+#define _XOPEN_SOURCE 700
 #include "shell.h"
+#include <termios.h>
+
+// ... existing code ...
+
+static void handle_parent_foreground(pid_t pid) {
+  fg_pid = pid;
+  strcpy(fg_command_name, "Calculator");
+
+  int status = 0;
+  waitpid(pid, &status, WUNTRACED);
+
+  // Restore terminal control to shell
+  tcsetpgrp(STDIN_FILENO, getpgrp());
+
+  // Flush any input typed while the command was running
+  tcflush(STDIN_FILENO, TCIFLUSH);
+
+  fg_pid = -1;
+}
 
 void countdown(int seconds) {
   for (int i = seconds; i >= 0; i--) {
@@ -68,16 +88,6 @@ static void handle_child_process(int is_background) {
   exec_calculator(is_background);
 }
 
-static void handle_parent_foreground(pid_t pid) {
-  fg_pid = pid;
-  strcpy(fg_command_name, "Calculator");
-
-  int status = 0;
-  waitpid(pid, &status, WUNTRACED);
-
-  fg_pid = -1;
-}
-
 static void handle_parent_background(pid_t pid) {
   addProcess(pid, "Calculator", 0);
   printf("Calculator opened in background with PID %d\n", pid);
@@ -92,12 +102,20 @@ void openCalculator(int is_background) {
   }
 
   if (pid == 0) {
+    setpgid(0, 0); // New process group
+    if (!is_background) {
+      tcsetpgrp(STDIN_FILENO, getpid()); // Take control
+    }
+    // Restore signals if needed (though open usage might not care)
     handle_child_process(is_background);
   } else {
+    setpgid(pid, pid); // Ensure PGID set
     if (is_background) {
       handle_parent_background(pid);
     } else {
+      tcsetpgrp(STDIN_FILENO, pid); // Give control
       handle_parent_foreground(pid);
+      tcsetpgrp(STDIN_FILENO, getpgrp()); // Take control back
     }
   }
 }

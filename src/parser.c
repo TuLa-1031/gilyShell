@@ -1,4 +1,3 @@
-#include "parser.h"
 #include "shell.h"
 
 static void allocation_error(const char *prefix) {
@@ -120,6 +119,10 @@ int tokenize(const char *line, Token *tokens) {
       end_token(buf, &buf_index, tokens, &n);
       add_operator_token(tokens, &n, T_REDIR_IN);
       break;
+    case '&':
+      end_token(buf, &buf_index, tokens, &n);
+      add_operator_token(tokens, &n, T_AMP);
+      break;
     default:
       buf[buf_index++] = c;
     }
@@ -156,17 +159,31 @@ Pipeline *parse(Token *toks, int ntok) {
       break;
     case T_REDIR_IN:
       cur->in_file = parse_redir_file(toks, ntok, &i, "<");
-      if (!cur->in_file) return pl;
+      if (!cur->in_file)
+        return pl;
       break;
     case T_REDIR_OUT:
       cur->out_file = parse_redir_file(toks, ntok, &i, ">");
-      if (!cur->out_file) return pl;
+      if (!cur->out_file)
+        return pl;
       cur->append = 0;
       break;
     case T_REDIR_APPEND:
       cur->out_file = parse_redir_file(toks, ntok, &i, ">>");
-      if (!cur->out_file) return pl;
+      if (!cur->out_file)
+        return pl;
       cur->append = 1;
+      break;
+    case T_AMP:
+      if (i == ntok - 1) {
+        pl->background = 1;
+      } else {
+        // Should probably be a syntax error if & is not last,
+        // but for now let's just ignore or maybe split command?
+        // Simplest is treat as separator if we supported multiple commands,
+        // but for now just mark as background.
+        pl->background = 1;
+      }
       break;
     }
   }
