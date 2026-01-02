@@ -50,7 +50,6 @@ static void setup_output_redirect(Command *cmd, int pipefd[2], int is_last) {
 static void execute_child(char **argv) {
   int builtin_idx;
 
-  // DEBUG: Print what we are trying to execute
 
   if (is_builtin(argv[0], &builtin_idx)) {
 
@@ -106,9 +105,8 @@ int execute_pipeline(Pipeline *pl) {
 
   if (pl->background) {
     if (pl->count > 0 && pl->cmds[pl->count - 1]->argv[0] != NULL) {
-      // Ideally we'd want the PID of the last command in pipeline if it's a
-      // pipeline But simplified for now, we just don't wait for any. We need to
-      // track the last PID to add to jobs.
+      add_job(0, JOB_RUNNING,
+              pl->cmds[pl->count - 1]->argv[0]); // Placeholder PID 0
     }
   }
 
@@ -128,15 +126,12 @@ int execute_pipeline(Pipeline *pl) {
 
     pid_t pid = fork();
     if (pid == 0) {
-      // Child process
-      setpgid(0, 0); // Put child in its own process group
+      setpgid(0, 0); 
 
       if (!pl->background && is_last) {
-        // If foreground, give terminal control to this process group
         tcsetpgrp(STDIN_FILENO, getpid());
       }
 
-      // Restore default signal handlers for child
       signal(SIGINT, SIG_DFL);
       signal(SIGQUIT, SIG_DFL);
       signal(SIGTSTP, SIG_DFL);
@@ -158,7 +153,7 @@ int execute_pipeline(Pipeline *pl) {
     } else {
       // Parent process
       setpgid(pid,
-              pid); // Ensure child is in its own group (avoid race condition)
+              pid);
       if (prev_pipe_read != -1) {
         close(prev_pipe_read);
       }
@@ -168,20 +163,17 @@ int execute_pipeline(Pipeline *pl) {
         prev_pipe_read = pipefd[0];
       }
 
-      // If this is the last command in a background pipeline, add it to jobs
       if (is_last && pl->background) {
-        add_job(pid, JOB_RUNNING, expanded_argv[0]); // Simple command name
+        add_job(pid, JOB_RUNNING, expanded_argv[0]); 
       }
     }
   }
 
   if (!pl->background) {
-    // Foreground: wait for all
     for (int i = 0; i < pl->count; i++) {
       int status;
       waitpid(-1, &status, WUNTRACED);
     }
-    // Restore terminal control to shell
     tcsetpgrp(STDIN_FILENO, getpgrp());
   }
 

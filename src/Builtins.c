@@ -21,8 +21,6 @@ int lsh_bg(char **args);
 
 /*
   Builtin command definitions
-/*
-  Builtin command definitions
 */
 char *builtin_str[] = {"cd",   "help", "exit",       "history", "countd",
                        "date", "time", "calculator", "showEnv", "printPath",
@@ -174,14 +172,7 @@ int lsh_jobs(char **args) {
 int lsh_fg(char **args) {
   Job *job;
   if (args[1] == NULL) {
-    // Determine the current job to bring to foreground
-    // For now, just pick the max ID
-    int max_id = 0;
     job = NULL;
-    // Iterate to find max id
-    // Since we don't have direct access to jobs array size here easily without
-    // exposing it, we can use find_job_by_id or similar. Let's assume user
-    // provides ID for now or implement "current" later.
     fprintf(stderr, "glsh: usage: fg <job_id>\n");
     return 1;
   } else {
@@ -194,11 +185,10 @@ int lsh_fg(char **args) {
   }
 
   job->status = JOB_RUNNING;
-  print_jobs(); // Optional: print what we are running
+  print_jobs();
 
-  // Bring to foreground
   if (job->status == JOB_RUNNING) {
-    // Already running, just bring to foreground
+    
   }
 
   // Give terminal control to the job
@@ -208,16 +198,13 @@ int lsh_fg(char **args) {
 
   // Continue process if stopped
   if (job->status == JOB_STOPPED) {
-    kill(-job->pid, SIGCONT); // Send to process group
+    kill(-job->pid, SIGCONT); 
   }
 
-  // Update status just in case
   job->status = JOB_RUNNING;
 
   // Wait for it
   int status;
-  // Use waitpid on the process group ID if possible, but our Job struct has
-  // pid. Assuming PGID == PID for the leader.
   waitpid(job->pid, &status, WUNTRACED);
 
   // Restore terminal control to shell

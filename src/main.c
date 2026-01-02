@@ -95,12 +95,10 @@ int main(int argc, char **args) {
   (void)argc;
   (void)args;
 
-  // Check if we are running interactively
   int shell_terminal = STDIN_FILENO;
   int shell_is_interactive = isatty(shell_terminal);
 
   if (shell_is_interactive) {
-    // Loop until we are in the foreground
     while (tcgetpgrp(shell_terminal) != (getpgrp())) {
       kill(-getpgrp(), SIGTTIN);
     }
@@ -111,9 +109,7 @@ int main(int argc, char **args) {
     signal(SIGTSTP, SIG_IGN);
     signal(SIGTTIN, SIG_IGN);
     signal(SIGTTOU, SIG_IGN);
-    // SIGCHLD is handled by sigchld_handler later
 
-    // Put ourselves in our own process group
     pid_t shell_pgid = getpid();
     if (setpgid(shell_pgid, shell_pgid) < 0) {
       perror("Couldn't put the shell in its own process group");
@@ -130,25 +126,18 @@ int main(int argc, char **args) {
   sa.sa_handler = sigchld_handler;
   sigemptyset(&sa.sa_mask);
   sa.sa_flags =
-      SA_RESTART | SA_NOCLDSTOP; // We want to know about stopped children too?
-  // waitpid with WUNTRACED handles stopped.
-  // SA_NOCLDSTOP means do NOT receive signal when child stops.
-  // If we want signal on stop, remove SA_NOCLDSTOP.
-  // Bash typically catches SIGCHLD.
-  // Let's rely on waitpid checks in foreground and handler for background.
+      SA_RESTART | SA_NOCLDSTOP;
 
   if (sigaction(SIGCHLD, &sa, NULL) == -1) {
     perror("sigaction");
     exit(EXIT_FAILURE);
   }
 
-  // Load config files, if any.
+
   introduction();
-  // Run command loop.
 
   lsh_loop();
 
-  // Perform any shutdown/cleanup.
 
   return EXIT_SUCCESS;
 }
