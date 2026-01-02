@@ -11,12 +11,6 @@ static void handle_parent_foreground(pid_t pid) {
   int status = 0;
   waitpid(pid, &status, WUNTRACED);
 
-  // Restore terminal control to shell
-  tcsetpgrp(STDIN_FILENO, getpgrp());
-
-  // Flush any input typed while the command was running
-  tcflush(STDIN_FILENO, TCIFLUSH);
-
   fg_pid = -1;
 }
 
@@ -104,7 +98,9 @@ void openCalculator(int is_background) {
   if (pid == 0) {
     setpgid(0, 0); // New process group
     if (!is_background) {
-      tcsetpgrp(STDIN_FILENO, getpid()); // Take control
+      if (tcgetpgrp(STDIN_FILENO) == getppid()) {
+        tcsetpgrp(STDIN_FILENO, getpid()); // Take control
+      }
     }
     // Restore signals if needed (though open usage might not care)
     handle_child_process(is_background);
@@ -113,9 +109,18 @@ void openCalculator(int is_background) {
     if (is_background) {
       handle_parent_background(pid);
     } else {
-      tcsetpgrp(STDIN_FILENO, pid); // Give control
+      int has_terminal_control = (tcgetpgrp(STDIN_FILENO) == getpgrp());
+
+      if (has_terminal_control) {
+        tcsetpgrp(STDIN_FILENO, pid); // Give control
+      }
+
       handle_parent_foreground(pid);
-      tcsetpgrp(STDIN_FILENO, getpgrp()); // Take control back
+
+      if (has_terminal_control) {
+        tcsetpgrp(STDIN_FILENO, getpgrp()); // Take control back
+        tcflush(STDIN_FILENO, TCIFLUSH);
+      }
     }
   }
 }
