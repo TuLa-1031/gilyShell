@@ -2,143 +2,144 @@
 #include "parser.h"
 #include "shell.h"
 
-int lsh_execute(char **args) {
-  int i;
+static int is_builtin(const char *cmd, int *index) {
+  for (int i = 0; i < lsh_num_builtins(); i++) {
+    if (strcmp(cmd, builtin_str[i]) == 0) {
+      *index = i;
+      return 1;
+    }
+  }
+  return 0;
+}
 
+static int run_builtin(int index, char **args) {
+  return (*builtin_func[index])(args);
+}
+
+static void setup_input_redirect(Command *cmd, int prev_pipe_read) {
+  if (cmd->in_file) {
+    int fd = open(cmd->in_file, O_RDONLY);
+    if (fd == -1) {
+      perror(cmd->in_file);
+      exit(EXIT_FAILURE);
+    }
+    dup2(fd, STDIN_FILENO);
+    close(fd);
+  } else if (prev_pipe_read != -1) {
+    dup2(prev_pipe_read, STDIN_FILENO);
+    close(prev_pipe_read);
+  }
+}
+
+static void setup_output_redirect(Command *cmd, int pipefd[2], int is_last) {
+  if (cmd->out_file) {
+    int flags = O_WRONLY | O_CREAT | (cmd->append ? O_APPEND : O_TRUNC);
+    int fd = open(cmd->out_file, flags, 0644);
+    if (fd == -1) {
+      perror(cmd->out_file);
+      exit(EXIT_FAILURE);
+    }
+    dup2(fd, STDOUT_FILENO);
+    close(fd);
+  } else if (!is_last) {
+    dup2(pipefd[1], STDOUT_FILENO);
+    close(pipefd[1]);
+  }
+}
+
+static void execute_child(char **argv) {
+  int builtin_idx;
+  if (is_builtin(argv[0], &builtin_idx)) {
+    run_builtin(builtin_idx, argv);
+    exit(EXIT_SUCCESS);
+  }
+
+  if (execvp(argv[0], argv) == -1) {
+    perror("lsh");
+  }
+  exit(EXIT_FAILURE);
+}
+
+int lsh_execute(char **args) {
   if (args[0] == NULL) {
-    // AN empty command was entered.
     return 1;
   }
 
-  for (i = 0; i < lsh_num_builtins(); i++) {
-    if (strcmp(args[0], builtin_str[i]) == 0) {
-      return (*builtin_func[i])(args);
-    }
+  int builtin_idx;
+  if (is_builtin(args[0], &builtin_idx)) {
+    return run_builtin(builtin_idx, args);
   }
 
-  // printf("lsh: No such file or directory\n");
-  // free(history[history_count]);
-  // history_count--;
-  // if (history_count < 0) history_count = HISTORY_MAX;
-  // return 1;
-  pid_t pid, wpid;
-  int status;
-
-  pid = fork();
+  pid_t pid = fork();
   if (pid == 0) {
-    // Child process
     if (execvp(args[0], args) == -1) {
       perror("lsh");
     }
     exit(EXIT_FAILURE);
   } else if (pid < 0) {
-    // Error forking
     perror("lsh");
   } else {
-    // Parent process
-    do {
-      wpid = waitpid(pid, &status, WUNTRACED);
-    } while (!WIFEXITED(status) && !WIFEXITED(status));
+    int status;
+    waitpid(pid, &status, WUNTRACED);
+    while (!WIFEXITED(status) && !WIFSIGNALED(status)) {
+      waitpid(pid, &status, WUNTRACED);
+    }
   }
+
   return 1;
 }
 
 int execute_pipeline(Pipeline *pl) {
-  int i;
   int prev_pipe_read = -1;
   int pipefd[2];
-  pid_t pid;
 
   if (pl->count == 1 && pl->cmds[0]->argv[0] != NULL) {
-    char **raw_args = pl->cmds[0]->argv;
-    for (i = 0; i < lsh_num_builtins(); i++) {
-      if (strcmp(raw_args[0], builtin_str[i]) == 0) {
-        // Chạy hàm built-in (vd: lsh_cd) và trả về status
-        return (*builtin_func[i])(raw_args);
-      }
+    int builtin_idx;
+    if (is_builtin(pl->cmds[0]->argv[0], &builtin_idx)) {
+      return run_builtin(builtin_idx, pl->cmds[0]->argv);
     }
   }
 
-  for (i = 0; i < pl->count; i++) {
+  for (int i = 0; i < pl->count; i++) {
     Command *cmd = pl->cmds[i];
-
     char **expanded_argv = expand_to_glob_argv(cmd->argv);
+    int is_last = (i == pl->count - 1);
+
     if (expanded_argv[0] == NULL) {
       continue;
     }
 
-    if (i < pl->count - 1) {
-      if (pipe(pipefd) == -1) {
-        perror("pipe");
-        return 1;
-      }
+    if (!is_last && pipe(pipefd) == -1) {
+      perror("pipe");
+      return 1;
     }
 
-    pid = fork();
+    pid_t pid = fork();
     if (pid == 0) {
-      // child
-      // handle input
-      if (cmd->in_file) {
-        int fd = open(cmd->in_file, O_RDONLY);
-        if (fd == -1) {
-          perror(cmd->in_file);
-          exit(EXIT_FAILURE);
-        }
-        dup2(fd, STDIN_FILENO);
-        close(fd);
-      } else if (prev_pipe_read != -1) {
-        dup2(prev_pipe_read, STDIN_FILENO);
-        close(prev_pipe_read);
-      }
+      setup_input_redirect(cmd, prev_pipe_read);
+      setup_output_redirect(cmd, pipefd, is_last);
 
-      // handle output
-      if (cmd->out_file) {
-        int flags = O_WRONLY | O_CREAT;
-        flags |= cmd->append ? O_APPEND : O_TRUNC;
-        int fd = open(cmd->out_file, flags, 0644);
-        if (fd == -1) {
-          perror(cmd->out_file);
-          exit(EXIT_FAILURE);
-        }
-        dup2(fd, STDOUT_FILENO);
-        close(fd);
-      } else if (i < pl->count - 1) {
-        dup2(pipefd[1], STDOUT_FILENO);
-        close(pipefd[1]);
-      }
-
-      if (i < pl->count - 1)
+      if (!is_last) {
         close(pipefd[0]);
-
-      // exec
-      for (int j = 0; j < lsh_num_builtins(); j++) {
-        if (strcmp(expanded_argv[0], builtin_str[j]) == 0) {
-          (*builtin_func[j])(expanded_argv);
-          exit(EXIT_SUCCESS); // Child xong việc thì phải chết
-        }
       }
 
-      if (execvp(expanded_argv[0], expanded_argv) == -1) {
-        perror("lsh");
-      }
-      exit(EXIT_FAILURE);
-
+      execute_child(expanded_argv);
     } else if (pid < 0) {
       perror("fork");
       return 1;
     } else {
-      // parent
-      if (prev_pipe_read != -1)
+      if (prev_pipe_read != -1) {
         close(prev_pipe_read);
+      }
 
-      if (i < pl->count - 1) {
+      if (!is_last) {
         close(pipefd[1]);
         prev_pipe_read = pipefd[0];
       }
     }
   }
 
-  for (i = 0; i < pl->count; i++) {
+  for (int i = 0; i < pl->count; i++) {
     wait(NULL);
   }
 

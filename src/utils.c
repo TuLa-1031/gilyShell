@@ -2,26 +2,26 @@
 
 void countdown(int seconds) {
   for (int i = seconds; i >= 0; i--) {
-    system("clear"); // Linux terminal clear
+    system("clear");
     printf("***********************************\n");
-    printf("*        Countdown Timer         *\n");
+    printf("*        Countdown Timer          *\n");
     printf("***********************************\n");
-    printf("*          %2d seconds           *\n", i);
+    printf("*          %2d seconds             *\n", i);
     printf("***********************************\n");
-    sleep(1); // 1 second pause
+    sleep(1);
   }
 
   system("clear");
   printf("***********************************\n");
-  printf("*           Time out!           *\n");
+  printf("*           Time's up!            *\n");
   printf("***********************************\n");
 }
 
-void date() { system("date"); }
+void date(void) { system("date"); }
 
-void time_() {
-  setenv("TZ", "Asia/Ho_Chi_Minh", 1); // Set Vietnam timezone
-  tzset();                             // Apply the new timezone
+void time_(void) {
+  setenv("TZ", "Asia/Ho_Chi_Minh", 1);
+  tzset();
 
   time_t t = time(NULL);
   if (t == (time_t)-1) {
@@ -40,56 +40,64 @@ void time_() {
   printf("Current time: %s\n", buffer);
 }
 
-void addProcess(int pid, char *name, int status) {
+void addProcess(int pid, const char *name, int status) {
+  (void)name;
+  (void)status;
   printf("[Shell Info] Process added to background list: PID=%d\n", pid);
+}
+
+static void redirect_output_to_null(void) {
+  freopen("/dev/null", "w", stderr);
+  freopen("/dev/null", "w", stdout);
+}
+
+static void exec_calculator(int is_background) {
+  if (is_background) {
+    char *args[] = {"open", "-a", "Calculator", NULL};
+    execvp("open", args);
+  } else {
+    char *args[] = {"open", "-W", "-a", "Calculator", NULL};
+    execvp("open", args);
+  }
+  perror("execvp failed");
+  _exit(1);
+}
+
+static void handle_child_process(int is_background) {
+  redirect_output_to_null();
+  exec_calculator(is_background);
+}
+
+static void handle_parent_foreground(pid_t pid) {
+  fg_pid = pid;
+  strcpy(fg_command_name, "Calculator");
+
+  int status = 0;
+  waitpid(pid, &status, WUNTRACED);
+
+  fg_pid = -1;
+}
+
+static void handle_parent_background(pid_t pid) {
+  addProcess(pid, "Calculator", 0);
+  printf("Calculator opened in background with PID %d\n", pid);
 }
 
 void openCalculator(int is_background) {
   pid_t pid = fork();
 
-  if (pid == 0) {
-    // --- TIẾN TRÌNH CON ---
-
-    // Redirect stderr để terminal không bị rác nếu lệnh open bắn log
-    freopen("/dev/null", "w", stderr);
-    freopen("/dev/null", "w", stdout);
-
-    if (!is_background) {
-      // FOREGROUND: Dùng tham số -W (Wait) để lệnh open đợi app tắt rồi mới kết
-      // thúc Lệnh tương đương: open -W -a Calculator
-      char *args[] = {"open", "-W", "-a", "Calculator", NULL};
-      execvp("open", args);
-    } else {
-      // BACKGROUND: Chỉ mở lên rồi trả về ngay lập tức
-      // Lệnh tương đương: open -a Calculator
-      char *args[] = {"open", "-a", "Calculator", NULL};
-      execvp("open", args);
-    }
-
-    // Nếu execvp chạy tới đây nghĩa là lỗi
-    exit(1);
-
-  } else if (pid > 0) {
-    // --- TIẾN TRÌNH CHA ---
-
-    if (!is_background) {
-      // Chế độ Foreground
-      fg_pid = pid;
-      strcpy(fg_command_name, "Calculator");
-
-      int status = 0;
-      // Shell đợi lệnh "open -W" kết thúc (lệnh này kết thúc khi bạn tắt
-      // Calculator)
-      waitpid(pid, &status, WUNTRACED);
-
-      fg_pid = -1;
-    } else {
-      // Chế độ Background
-      addProcess(pid, "Calculator", 0);
-      printf("Calculator opened in background with PID %d\n", pid);
-    }
-
-  } else {
+  if (pid < 0) {
     perror("Fork failed");
+    return;
+  }
+
+  if (pid == 0) {
+    handle_child_process(is_background);
+  } else {
+    if (is_background) {
+      handle_parent_background(pid);
+    } else {
+      handle_parent_foreground(pid);
+    }
   }
 }
