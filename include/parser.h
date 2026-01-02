@@ -1,6 +1,8 @@
 #ifndef PARSER_H
 #define PARSER_H
 
+#include "shell.h"
+
 char *lsh_read_line(void);
 int tokenize(const char *line, Token *tokens);
 Pipeline *parse(Token *toks, int ntok);
