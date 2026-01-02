@@ -1,109 +1,102 @@
-# GilyShell: A Functional POSIX-Compliant Shell Implementation
+# GilyShell
 
-GilyShell is a custom-built command-line interpreter (CLI) developed in C. Unlike basic shell wrappers, GilyShell is a fully functional environment that implements core Operating System concepts from scratch, including Inter-Process Communication (IPC), Signal Handling, and Process Group Management.
+GilyShell is a custom command-line interpreter developed in C, designed to demonstrate core operating system concepts such as process management, inter-process communication (IPC), and signal handling. It provides a functional shell environment that supports standard POSIX-like syntax and behavior.
 
-This project demonstrates a deep dive into Systems Programming, showcasing the ability to interact directly with the Unix Kernel API without relying on high-level abstractions.
+This project serves as a practical implementation of system programming concepts, interacting directly with the Unix Kernel API options like `fork`, `exec`, `pipe`, `dup2`, and `ioctl`.
 
------
+## Features
 
-## Technical Architecture & Highlights
+### 1. Process Management & Job Control
+- **Background Execution:** Commands can be run in the background using the `&` operator (e.g., `sleep 10 &`), allowing the shell to remain interactive.
+- **Job Control:**
+  - `jobs`: List all active background and stopped jobs with their status and Job IDs.
+  - `fg`: Bring a background or stopped job to the foreground.
+  - `bg`: Resume a stopped job in the background.
+  - Support for `Ctrl+Z` (SIGTSTP) to suspend foreground processes and `Ctrl+C` (SIGINT) to interrupt them.
 
-The project focuses on the interaction between user-space programs and kernel-space services through low-level system calls.
+### 2. Pipelines & IPC
+- **Piping:** Supports chaining multiple commands using the `|` operator (e.g., `ls | grep .c | wc -l`).
+- **Data Flow:** Seamlessly passes standard output from one process to the standard input of the next.
 
-### 1. Advanced Process Management & Job Control
+### 3. I/O Redirection
+- **Output Redirection:**
+  - `>`: Overwrite a file with command output.
+  - `>>`: Append command output to a file.
+- **Input Redirection:**
+  - `<`: Read command input from a file.
 
-* **Background Execution:** Implemented support for background processes using the '&' operator, managing process execution without blocking the shell instance.
-* **Context Switching:** Utilization of `fork()`, `execvp()`, and `waitpid()` to manage the lifecycle of child processes.
+### 4. Built-in Commands
+GilyShell includes several internal commands that execute within the shell process:
 
-### 2. Inter-Process Communication (IPC) & Pipelines
+- **Navigation & Environment:**
+  - `cd <directory>`: Change the current working directory.
+  - `showEnv`: Display all environment variables.
+  - `printPath`: Print the current system PATH.
+  - `exit`: Terminate the shell session.
 
-* **Piping ('|'):** Engineered a pipeline mechanism using `pipe()` and file descriptor manipulation. This allows the output of one process to serve directly as the input to another (e.g., `ls -l | grep .c`).
-* **Recursive Execution:** Capable of handling multiple piped commands in a single chain.
+- **Utilities:**
+  - `history`: Display the list of previously executed commands.
+  - `help`: Show the help menu with available commands.
+  - `date`: Display the current system date.
+  - `time`: Display the current system time.
+  - `countd <seconds>`: Start a countdown timer.
+  - `calculator`: Launch an external calculator application (demonstrates process isolation and terminal control).
 
-### 3. I/O Redirection & File Descriptors
+### 5. Signal Handling
+- Implements custom signal handlers to manage child processes and shell stability.
+- Prevents zombie processes by properly reaping terminated children.
+- Ignores interactive signals (like SIGTTOU) when necessary to maintain terminal control.
 
-* **Stream Manipulation:** Implemented standard Unix redirection operators (`>`, `<`, `2>`) using `dup2()` to clone file descriptors, enabling dynamic input/output routing between files and processes.
+## Installation and Usage
 
-### 4. Signal Handling & Safety
+### Prerequisites
+- A Unix-like operating system (Linux, macOS).
+- GCC compiler.
+- Make build system.
 
-* **Interrupt Management:** robust handling of hardware and software signals.
-    * `SIGINT` (Ctrl+C): Safely interrupts the foreground process without crashing the shell.
-    * `SIGTSTP` (Ctrl+Z): Manages process suspension.
-* **Zombie Prevention:** Proper cleanup of terminated child processes to prevent resource leaks.
+### Compiling
+To build the shell, run the following command in the project root:
 
------
-
-## Project Structure
-
-Designed with modularity to separate parsing logic from execution strategies.
-
-```
-.
-├── src/
-│   ├── main.c            # Event loop and signal trap initialization
-│   ├── parser.c          # Lexical analysis and tokenization logic
-│   ├── execute.c         # Process forking and external execution
-│   ├── pipes.c           # Logic for handling IPC and piped commands
-│   ├── redirect.c        # File descriptor manipulation for I/O
-│   ├── Builtins.c        # Internal command implementations (cd, exit, etc.)
-│   └── introduction.c    # UI and Shell initialization
-├── include/              # Header files defining interfaces for modules
-├── Makefile              # Build configuration
-└── README.md
-```
-
------
-
-## Feature Showcase
-
-### Executing Commands with Pipelines
-
-GilyShell supports chaining commands via pipes:
-
-```bash
-gily> ls -l /usr/bin | grep python | wc -l
-```
-
-### Input/Output Redirection
-
-Seamlessly redirect streams to files:
-
-```bash
-gily> echo "Hello World" > output.txt
-gily> cat < output.txt
-```
-
-### Background Processes
-
-Run tasks in the background to keep the shell interactive:
-
-```bash
-gily> sleep 10 &
-[1] 12345
-```
-
------
-
-## Installation & Usage
-
-### Build
-
-Compile the source code using the provided Makefile:
-
-```bash
+```sh
 make
 ```
 
-### Run
+ This will compile all source files and link them into an executable named `gilyshell`.
 
-Start the shell instance:
+### Running
+Start the shell by running:
 
-```bash
+```sh
 ./gilyshell
 ```
 
------
+To remove build artifacts:
+
+```sh
+make clean
+```
+
+## Architecture Overview
+
+The shell operates through a standard Read-Eval-Print Loop (REPL):
+
+1.  **Initialization:** Sets up job list, history, and signal traps.
+2.  **Read:** Captures user input from the command line.
+3.  **Parse:** Tokenizes the input and constructs a `Pipeline` structure containing one or more `Command` objects. Identifies operators like `&`, `|`, `>`, `>>`, `<`.
+4.  **Execute:**
+    - Checks for built-in commands.
+    - If external, `fork()` is called to create child processes.
+    - `execvp()` replaces the child process image with the requested command.
+    - Manages file descriptors for pipes and redirection using `dup2()`.
+    - Handles foreground/background execution logic using `waitpid()` and process groups.
+5.  **Loop:** Returns to the prompt for the next command.
+
+## Project Structure
+
+- `src/`: Source files (`main.c`, `parser.c`, `execute.c`, `Builtins.c`, `jobs.c`, `utils.c`, `introduction.c`).
+- `include/`: Header files defining data structures and function prototypes.
+- `Makefile`: Build instructions.
 
 ## Author
 
-**Le Tung Lam**
+Le Tung Lam
