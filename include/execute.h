@@ -1,9 +1,8 @@
-#ifndef EXECUTE_H
-#define EXECUTE_H
+#ifndef GLSH_EXECUTE_H
+#define GLSH_EXECUTE_H
 
 #include "shell.h"
 
-int lsh_execute(char **args);
-int execute_pipeline(Pipeline *pl);
+int glsh_execute_pipeline(Pipeline *pl);
 
 #endif

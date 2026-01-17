@@ -1,12 +1,9 @@
 #include "shell.h"
 
-#define MAX_JOBS 64
+static Job jobs[GLSH_MAX_JOBS];
 
-Job jobs[MAX_JOBS];
-int job_count = 0;
-
-void init_jobs(void) {
-  for (int i = 0; i < MAX_JOBS; i++) {
+void glsh_jobs_init(void) {
+  for (int i = 0; i < GLSH_MAX_JOBS; i++) {
     jobs[i].pid = 0;
     jobs[i].id = 0;
     jobs[i].status = JOB_DONE;
@@ -14,9 +11,9 @@ void init_jobs(void) {
   }
 }
 
-int get_next_job_id(void) {
+int glsh_job_next_id(void) {
   int max_id = 0;
-  for (int i = 0; i < MAX_JOBS; i++) {
+  for (int i = 0; i < GLSH_MAX_JOBS; i++) {
     if (jobs[i].pid != 0 && jobs[i].id > max_id) {
       max_id = jobs[i].id;
     }
@@ -24,38 +21,35 @@ int get_next_job_id(void) {
   return max_id + 1;
 }
 
-void add_job(pid_t pid, JobStatus status, const char *cmd) {
-  int i;
-  for (i = 0; i < MAX_JOBS; i++) {
+void glsh_job_add(pid_t pid, JobStatus status, const char *cmd) {
+  for (int i = 0; i < GLSH_MAX_JOBS; i++) {
     if (jobs[i].pid == 0) {
       jobs[i].pid = pid;
       jobs[i].status = status;
       jobs[i].command = strdup(cmd);
-      jobs[i].id = get_next_job_id();
+      jobs[i].id = glsh_job_next_id();
       printf("[%d] %d\n", jobs[i].id, pid);
       return;
     }
   }
-  fprintf(stderr, "glsh: detailed job list is full!\n");
+  fprintf(stderr, "glsh: job list is full\n");
 }
 
-void delete_job(pid_t pid) {
-  for (int i = 0; i < MAX_JOBS; i++) {
+void glsh_job_delete(pid_t pid) {
+  for (int i = 0; i < GLSH_MAX_JOBS; i++) {
     if (jobs[i].pid == pid) {
       jobs[i].pid = 0;
       jobs[i].id = 0;
       jobs[i].status = JOB_DONE;
-      if (jobs[i].command) {
-        free(jobs[i].command);
-        jobs[i].command = NULL;
-      }
+      free(jobs[i].command);
+      jobs[i].command = NULL;
       return;
     }
   }
 }
 
-Job *find_job(pid_t pid) {
-  for (int i = 0; i < MAX_JOBS; i++) {
+Job *glsh_job_find(pid_t pid) {
+  for (int i = 0; i < GLSH_MAX_JOBS; i++) {
     if (jobs[i].pid == pid) {
       return &jobs[i];
     }
@@ -63,8 +57,8 @@ Job *find_job(pid_t pid) {
   return NULL;
 }
 
-Job *find_job_by_id(int id) {
-  for (int i = 0; i < MAX_JOBS; i++) {
+Job *glsh_job_find_by_id(int id) {
+  for (int i = 0; i < GLSH_MAX_JOBS; i++) {
     if (jobs[i].pid != 0 && jobs[i].id == id) {
       return &jobs[i];
     }
@@ -72,8 +66,8 @@ Job *find_job_by_id(int id) {
   return NULL;
 }
 
-void print_jobs(void) {
-  for (int i = 0; i < MAX_JOBS; i++) {
+void glsh_jobs_print(void) {
+  for (int i = 0; i < GLSH_MAX_JOBS; i++) {
     if (jobs[i].pid != 0) {
       const char *status_str;
       switch (jobs[i].status) {

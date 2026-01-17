@@ -1,7 +1,6 @@
-#ifndef INTRODUCTION_H
-#define INTRODUCTION_H
+#ifndef GLSH_INTRODUCTION_H
+#define GLSH_INTRODUCTION_H
 
-int introduction();
-
+void glsh_introduction(void);
 
 #endif

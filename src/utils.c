@@ -1,51 +1,55 @@
 #define _XOPEN_SOURCE 700
 #include "shell.h"
-#include <termios.h>
 
-// ... existing code ...
-
-static void handle_parent_foreground(pid_t pid) {
-  fg_pid = pid;
-  strcpy(fg_command_name, "Calculator");
-
-  int status = 0;
-  waitpid(pid, &status, WUNTRACED);
-
-  fg_pid = -1;
-}
-
-void countdown(int seconds) {
+void glsh_countdown(int seconds) {
   for (int i = seconds; i >= 0; i--) {
-    system("clear");
+    printf("\033[H\033[J");
     printf("***********************************\n");
     printf("*        Countdown Timer          *\n");
     printf("***********************************\n");
     printf("*          %2d seconds             *\n", i);
     printf("***********************************\n");
+    fflush(stdout);
     sleep(1);
   }
 
-  system("clear");
+  printf("\033[H\033[J");
   printf("***********************************\n");
   printf("*           Time's up!            *\n");
   printf("***********************************\n");
 }
 
-void date(void) { system("date"); }
-
-void time_(void) {
-  setenv("TZ", "Asia/Ho_Chi_Minh", 1);
-  tzset();
-
+void glsh_print_date(void) {
   time_t t = time(NULL);
   if (t == (time_t)-1) {
-    perror("Failed to get the current time");
+    perror("glsh: failed to get current time");
     return;
   }
 
   struct tm tm_info;
   if (localtime_r(&t, &tm_info) == NULL) {
-    perror("Failed to convert time to local time");
+    perror("glsh: failed to convert time");
+    return;
+  }
+
+  char buffer[64];
+  strftime(buffer, sizeof(buffer), "%a %b %d %H:%M:%S %Z %Y", &tm_info);
+  printf("%s\n", buffer);
+}
+
+void glsh_print_time(void) {
+  setenv("TZ", "Asia/Ho_Chi_Minh", 1);
+  tzset();
+
+  time_t t = time(NULL);
+  if (t == (time_t)-1) {
+    perror("glsh: failed to get current time");
+    return;
+  }
+
+  struct tm tm_info;
+  if (localtime_r(&t, &tm_info) == NULL) {
+    perror("glsh: failed to convert time");
     return;
   }
 
@@ -54,72 +58,113 @@ void time_(void) {
   printf("Current time: %s\n", buffer);
 }
 
-void addProcess(int pid, const char *name, int status) {
-  (void)name;
-  (void)status;
-  printf("[Shell Info] Process added to background list: PID=%d\n", pid);
-}
-
-static void redirect_output_to_null(void) {
-  freopen("/dev/null", "w", stderr);
-  freopen("/dev/null", "w", stdout);
-}
-
-static void exec_calculator(int is_background) {
-  if (is_background) {
-    char *args[] = {"open", "-a", "Calculator", NULL};
-    execvp("open", args);
-  } else {
-    char *args[] = {"open", "-W", "-a", "Calculator", NULL};
-    execvp("open", args);
-  }
-  perror("execvp failed");
-  _exit(1);
-}
-
-static void handle_child_process(int is_background) {
-  redirect_output_to_null();
-  exec_calculator(is_background);
-}
-
-static void handle_parent_background(pid_t pid) {
-  addProcess(pid, "Calculator", 0);
-  printf("Calculator opened in background with PID %d\n", pid);
-}
-
-void openCalculator(int is_background) {
+void glsh_open_calculator(int is_background) {
   pid_t pid = fork();
 
   if (pid < 0) {
-    perror("Fork failed");
+    perror("glsh: fork");
     return;
   }
 
   if (pid == 0) {
-    setpgid(0, 0); // New process group
-    if (!is_background) {
-      if (tcgetpgrp(STDIN_FILENO) == getppid()) {
-        tcsetpgrp(STDIN_FILENO, getpid()); // Take control
+    setpgid(0, 0);
+
+    signal(SIGINT, SIG_DFL);
+    signal(SIGQUIT, SIG_DFL);
+    signal(SIGTSTP, SIG_DFL);
+    signal(SIGTTIN, SIG_DFL);
+    signal(SIGTTOU, SIG_DFL);
+
+    freopen("/dev/null", "w", stderr);
+    freopen("/dev/null", "w", stdout);
+
+    char *args[] = {"open", "-W", "-a", "Calculator", NULL};
+    execvp("open", args);
+    _exit(1);
+  } else {
+    setpgid(pid, pid);
+
+    if (is_background) {
+      glsh_job_add(pid, JOB_RUNNING, "calculator");
+    } else {
+      tcsetpgrp(STDIN_FILENO, pid);
+
+      int status;
+      waitpid(pid, &status, WUNTRACED);
+
+      tcsetpgrp(STDIN_FILENO, getpgrp());
+
+      if (WIFSTOPPED(status)) {
+        glsh_job_add(pid, JOB_STOPPED, "calculator");
+        printf("\n[%d]+  Stopped                 calculator\n", glsh_job_next_id() - 1);
       }
     }
-    // Restore signals if needed (though open usage might not care)
-    handle_child_process(is_background);
+  }
+}
+
+void glsh_open_countdown(int seconds, int is_background) {
+  char script[1024];
+  snprintf(script, sizeof(script),
+    "tell application \"Terminal\"\n"
+    "    set newTab to do script \"for i in $(seq %d -1 0); do clear; "
+    "echo '***********************************'; "
+    "echo '*        Countdown Timer          *'; "
+    "echo '***********************************'; "
+    "printf '*          %%2d seconds             *\\n' \\\"$i\\\"; "
+    "echo '***********************************'; "
+    "sleep 1; done; clear; "
+    "echo '***********************************'; "
+    "echo '*           Time is up!           *'; "
+    "echo '***********************************'; "
+    "sleep 2\"\n"
+    "    activate\n"
+    "    repeat\n"
+    "        delay 0.5\n"
+    "        if not busy of newTab then exit repeat\n"
+    "    end repeat\n"
+    "end tell",
+    seconds);
+
+  pid_t pid = fork();
+
+  if (pid < 0) {
+    perror("glsh: fork");
+    return;
+  }
+
+  if (pid == 0) {
+    setpgid(0, 0);
+
+    signal(SIGINT, SIG_DFL);
+    signal(SIGQUIT, SIG_DFL);
+    signal(SIGTSTP, SIG_DFL);
+    signal(SIGTTIN, SIG_DFL);
+    signal(SIGTTOU, SIG_DFL);
+
+    freopen("/dev/null", "w", stderr);
+
+    char *args[] = {"osascript", "-e", script, NULL};
+    execvp("osascript", args);
+    _exit(1);
   } else {
-    setpgid(pid, pid); // Ensure PGID set
+    setpgid(pid, pid);
+
+    char job_name[64];
+    snprintf(job_name, sizeof(job_name), "countd %d", seconds);
+
     if (is_background) {
-      handle_parent_background(pid);
+      glsh_job_add(pid, JOB_RUNNING, job_name);
     } else {
-      int has_terminal_control = (tcgetpgrp(STDIN_FILENO) == getpgrp());
+      tcsetpgrp(STDIN_FILENO, pid);
 
-      if (has_terminal_control) {
-        tcsetpgrp(STDIN_FILENO, pid); // Give control
-      }
+      int status;
+      waitpid(pid, &status, WUNTRACED);
 
-      handle_parent_foreground(pid);
+      tcsetpgrp(STDIN_FILENO, getpgrp());
 
-      if (has_terminal_control) {
-        tcsetpgrp(STDIN_FILENO, getpgrp()); // Take control back
-        tcflush(STDIN_FILENO, TCIFLUSH);
+      if (WIFSTOPPED(status)) {
+        glsh_job_add(pid, JOB_STOPPED, job_name);
+        printf("\n[%d]+  Stopped                 %s\n", glsh_job_next_id() - 1, job_name);
       }
     }
   }

@@ -1,9 +1,10 @@
-#ifndef UTILS_H
-#define UTILS_H
+#ifndef GLSH_UTILS_H
+#define GLSH_UTILS_H
 
-void countdown(int secound);
-void date();
-void time_();
-void openCalculator(int is_background);
+void glsh_countdown(int seconds);
+void glsh_print_date(void);
+void glsh_print_time(void);
+void glsh_open_calculator(int is_background);
+void glsh_open_countdown(int seconds, int is_background);
 
 #endif

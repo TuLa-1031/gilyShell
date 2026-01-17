@@ -1,12 +1,11 @@
-#ifndef PARSER_H
-#define PARSER_H
+#ifndef GLSH_PARSER_H
+#define GLSH_PARSER_H
 
 #include "shell.h"
 
-char *lsh_read_line(void);
-int tokenize(const char *line, Token *tokens);
-Pipeline *parse(Token *toks, int ntok);
-char **lsh_split_line(char *line);
-char **expand_to_glob_argv(char **args);
+char *glsh_read_line(void);
+int glsh_tokenize(const char *line, Token *tokens);
+Pipeline *glsh_parse(Token *toks, int ntok);
+char **glsh_expand_glob(char **args);
 
 #endif

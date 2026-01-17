@@ -1,34 +1,52 @@
 #include "shell.h"
+#include <errno.h>
 
-static void allocation_error(const char *prefix) {
-  fprintf(stderr, "%s: allocation error\n", prefix);
+static void allocation_error(void) {
+  fprintf(stderr, "glsh: allocation error\n");
   exit(EXIT_FAILURE);
 }
 
-char *lsh_read_line(void) {
-  int bufsize = LSH_RL_BUFSIZE;
+char *glsh_read_line(void) {
+  int bufsize = GLSH_RL_BUFSIZE;
   int position = 0;
   char *buffer = malloc(sizeof(char) * bufsize);
-  int c;
+  char ch;
 
-  if (!buffer)
-    allocation_error("lsh");
+  if (!buffer) {
+    allocation_error();
+  }
 
   while (1) {
-    c = getchar();
+    ssize_t n = read(STDIN_FILENO, &ch, 1);
+    
+    if (n == 0) {
+      buffer[position] = '\0';
+      return buffer;
+    } else if (n == -1) {
+      if (errno == EINTR || errno == EIO) {
+        continue;
+      }
+      free(buffer);
+      buffer = malloc(1);
+      if (buffer) {
+        buffer[0] = '\0';
+      }
+      return buffer;
+    }
 
-    if (c == EOF || c == '\n') {
+    if (ch == '\n') {
       buffer[position] = '\0';
       return buffer;
     }
 
-    buffer[position++] = c;
+    buffer[position++] = ch;
 
     if (position >= bufsize) {
-      bufsize += LSH_RL_BUFSIZE;
+      bufsize += GLSH_RL_BUFSIZE;
       buffer = realloc(buffer, bufsize);
-      if (!buffer)
-        allocation_error("glsh");
+      if (!buffer) {
+        allocation_error();
+      }
     }
   }
 }
@@ -36,7 +54,7 @@ char *lsh_read_line(void) {
 static void end_token(char *buf, int *buf_index, Token *tokens, int *n) {
   if (*buf_index > 0) {
     buf[*buf_index] = '\0';
-    tokens[*n].type = T_WORD;
+    tokens[*n].type = TOKEN_WORD;
     tokens[*n].value = strdup(buf);
     (*n)++;
     *buf_index = 0;
@@ -49,9 +67,9 @@ static void add_operator_token(Token *tokens, int *n, TokenType type) {
   (*n)++;
 }
 
-int tokenize(const char *line, Token *tokens) {
+int glsh_tokenize(const char *line, Token *tokens) {
   int n = 0;
-  char buf[MAX_TOKEN_LEN];
+  char buf[GLSH_MAX_TOKEN];
   int buf_index = 0;
   int len = strlen(line);
   int in_single = 0, in_double = 0;
@@ -65,10 +83,11 @@ int tokenize(const char *line, Token *tokens) {
     }
 
     if (in_single) {
-      if (c == '\'')
+      if (c == '\'') {
         in_single = 0;
-      else
+      } else {
         buf[buf_index++] = c;
+      }
       continue;
     }
 
@@ -97,31 +116,32 @@ int tokenize(const char *line, Token *tokens) {
       in_double = 1;
       break;
     case '\\':
-      if (i + 1 < len)
+      if (i + 1 < len) {
         buf[buf_index++] = line[++i];
-      else
+      } else {
         buf[buf_index++] = '\\';
+      }
       break;
     case '|':
       end_token(buf, &buf_index, tokens, &n);
-      add_operator_token(tokens, &n, T_PIPE);
+      add_operator_token(tokens, &n, TOKEN_PIPE);
       break;
     case '>':
       end_token(buf, &buf_index, tokens, &n);
       if (i + 1 < len && line[i + 1] == '>') {
-        add_operator_token(tokens, &n, T_REDIR_APPEND);
+        add_operator_token(tokens, &n, TOKEN_REDIR_APPEND);
         i++;
       } else {
-        add_operator_token(tokens, &n, T_REDIR_OUT);
+        add_operator_token(tokens, &n, TOKEN_REDIR_OUT);
       }
       break;
     case '<':
       end_token(buf, &buf_index, tokens, &n);
-      add_operator_token(tokens, &n, T_REDIR_IN);
+      add_operator_token(tokens, &n, TOKEN_REDIR_IN);
       break;
     case '&':
       end_token(buf, &buf_index, tokens, &n);
-      add_operator_token(tokens, &n, T_AMP);
+      add_operator_token(tokens, &n, TOKEN_BACKGROUND);
       break;
     default:
       buf[buf_index++] = c;
@@ -132,15 +152,15 @@ int tokenize(const char *line, Token *tokens) {
 }
 
 static char *parse_redir_file(Token *toks, int ntok, int *i, const char *op) {
-  if (*i + 1 >= ntok || toks[*i + 1].type != T_WORD) {
-    fprintf(stderr, "syntax error: expected file after %s\n", op);
+  if (*i + 1 >= ntok || toks[*i + 1].type != TOKEN_WORD) {
+    fprintf(stderr, "glsh: syntax error: expected file after %s\n", op);
     return NULL;
   }
   (*i)++;
   return strdup(toks[*i].value);
 }
 
-Pipeline *parse(Token *toks, int ntok) {
+Pipeline *glsh_parse(Token *toks, int ntok) {
   Pipeline *pl = calloc(1, sizeof(Pipeline));
   Command *cur = calloc(1, sizeof(Command));
   pl->cmds[pl->count++] = cur;
@@ -149,48 +169,43 @@ Pipeline *parse(Token *toks, int ntok) {
     Token t = toks[i];
 
     switch (t.type) {
-    case T_WORD:
+    case TOKEN_WORD:
       cur->argv[cur->argc++] = strdup(t.value);
       cur->argv[cur->argc] = NULL;
       break;
-    case T_PIPE:
+    case TOKEN_PIPE:
       cur = calloc(1, sizeof(Command));
       pl->cmds[pl->count++] = cur;
       break;
-    case T_REDIR_IN:
+    case TOKEN_REDIR_IN:
       cur->in_file = parse_redir_file(toks, ntok, &i, "<");
-      if (!cur->in_file)
+      if (!cur->in_file) {
         return pl;
+      }
       break;
-    case T_REDIR_OUT:
+    case TOKEN_REDIR_OUT:
       cur->out_file = parse_redir_file(toks, ntok, &i, ">");
-      if (!cur->out_file)
+      if (!cur->out_file) {
         return pl;
+      }
       cur->append = 0;
       break;
-    case T_REDIR_APPEND:
+    case TOKEN_REDIR_APPEND:
       cur->out_file = parse_redir_file(toks, ntok, &i, ">>");
-      if (!cur->out_file)
+      if (!cur->out_file) {
         return pl;
+      }
       cur->append = 1;
       break;
-    case T_AMP:
-      if (i == ntok - 1) {
-        pl->background = 1;
-      } else {
-        // Should probably be a syntax error if & is not last,
-        // but for now let's just ignore or maybe split command?
-        // Simplest is treat as separator if we supported multiple commands,
-        // but for now just mark as background.
-        pl->background = 1;
-      }
+    case TOKEN_BACKGROUND:
+      pl->background = 1;
       break;
     }
   }
   return pl;
 }
 
-int has_wildcard(const char *s) {
+static int has_wildcard(const char *s) {
   return strchr(s, '*') || strchr(s, '?') || strchr(s, '[');
 }
 
@@ -199,49 +214,52 @@ static void append_arg(char ***argv, int *argc, const char *arg) {
   (*argv)[(*argc)++] = strdup(arg);
 }
 
-char **expand_to_glob_argv(char **args) {
+char **glsh_expand_glob(char **args) {
   char **new_argv = NULL;
   int new_argc = 0;
   glob_t globbuf;
 
   for (int i = 0; args[i]; i++) {
     if (has_wildcard(args[i]) && glob(args[i], 0, NULL, &globbuf) == 0) {
-      for (size_t j = 0; j < globbuf.gl_pathc; j++)
+      for (size_t j = 0; j < globbuf.gl_pathc; j++) {
         append_arg(&new_argv, &new_argc, globbuf.gl_pathv[j]);
+      }
       globfree(&globbuf);
     } else {
       append_arg(&new_argv, &new_argc, args[i]);
     }
   }
 
-  if (new_argv)
+  if (new_argv) {
     new_argv[new_argc] = NULL;
+  }
 
   return new_argv ? new_argv : args;
 }
 
-char **lsh_split_line(char *line) {
-  int bufsize = LSH_TOK_BUFSIZE, position = 0;
-  char **tokens = malloc(bufsize * sizeof(char *));
-
-  if (!tokens)
-    allocation_error("glsh");
-
-  char *token = strtok(line, LSH_TOK_DELIM);
-  while (token) {
-    tokens[position++] = token;
-
-    if (position >= bufsize) {
-      bufsize += LSH_TOK_BUFSIZE;
-      char **tmp = realloc(tokens, bufsize * sizeof(char *));
-      if (!tmp) {
-        free(tokens);
-        allocation_error("lsh");
-      }
-      tokens = tmp;
+void glsh_tokens_free(Token *tokens, int count) {
+  for (int i = 0; i < count; i++) {
+    if (tokens[i].value) {
+      free(tokens[i].value);
+      tokens[i].value = NULL;
     }
-    token = strtok(NULL, LSH_TOK_DELIM);
   }
-  tokens[position] = NULL;
-  return tokens;
+}
+
+void glsh_pipeline_free(Pipeline *pl) {
+  if (!pl) {
+    return;
+  }
+  for (int i = 0; i < pl->count; i++) {
+    Command *cmd = pl->cmds[i];
+    if (cmd) {
+      for (int j = 0; j < cmd->argc; j++) {
+        free(cmd->argv[j]);
+      }
+      free(cmd->in_file);
+      free(cmd->out_file);
+      free(cmd);
+    }
+  }
+  free(pl);
 }

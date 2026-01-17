@@ -1,5 +1,5 @@
 CC=gcc
-CFLAGS=-Iinclude -Wall
+CFLAGS=-Iinclude -Wall -Wextra -g
 DEPS = include/shell.h include/Builtins.h include/execute.h include/introduction.h include/parser.h include/utils.h
 VPATH = src
 

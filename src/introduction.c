@@ -1,36 +1,32 @@
 #include "introduction.h"
-#include "Builtins.h"
 #include "shell.h"
 
-static const char *gilyShellArt[] = {
+static const char *glsh_logo[] = {
     "   ██████╗ ██╗██╗     ██╗   ██╗███████╗██╗  ██╗███████╗██╗     ██╗     ",
     "  ██╔════╝ ██║██║     ╚██╗ ██╔╝██╔════╝██║  ██║██╔════╝██║     ██║     ",
     "  ██║  ███╗██║██║      ╚████╔╝ ███████╗███████║█████╗  ██║     ██║     ",
     "  ██║   ██║██║██║       ╚██╔╝  ╚════██║██╔══██║██╔══╝  ██║     ██║     ",
     "  ╚██████╔╝██║███████╗   ██║   ███████║██║  ██║███████╗███████╗███████╗",
-    "   ╚═════╝ ╚═╝╚══════╝   ╚═╝   ╚══════╝╚═╝  ╚═╝╚══════╝╚══════╝╚══════╝"};
+    "   ╚═════╝ ╚═╝╚══════╝   ╚═╝   ╚══════╝╚═╝  ╚═╝╚══════╝╚══════╝╚══════╝"
+};
 
-void printAnimatedText() {
+static void print_logo(void) {
+  int num_lines = sizeof(glsh_logo) / sizeof(glsh_logo[0]);
+
   printf("\n");
-  int numLines = sizeof(gilyShellArt) / sizeof(gilyShellArt[0]);
-
-  for (int i = 0; i < numLines; i++) {
-    printf("    %s\n", gilyShellArt[i]);
-
+  for (int i = 0; i < num_lines; i++) {
+    printf("    %s\n", glsh_logo[i]);
     usleep(50000);
   }
 }
 
-int introduction() {
+void glsh_introduction(void) {
   system("clear");
 
-  printf("\n");
-  printAnimatedText();
+  print_logo();
 
   printf("\n");
   printf("    Created by: Le Tung Lam\n");
   printf("    ---------------------------------------\n");
   printf("    Welcome to GilyShell. Type 'help' to start.\n\n");
-
-  return 1;
 }

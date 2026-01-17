@@ -1,11 +1,12 @@
-#ifndef BUILTINS_H
-#define BUILTINS_H
+#ifndef GLSH_BUILTINS_H
+#define GLSH_BUILTINS_H
 
-int help(char **args);
-int lsh_num_builtins(void);
+int glsh_num_builtins(void);
+int glsh_builtin_countd(char **args, int is_background);
+int glsh_builtin_calculator(char **args, int is_background);
+int glsh_builtin_repeat(char **args, int is_background);
 
-extern char *builtin_str[];
-extern int (*builtin_func[])(char **args);
-
+extern char *glsh_builtin_names[];
+extern int (*glsh_builtin_funcs[])(char **);
 
 #endif
